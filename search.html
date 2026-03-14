@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ru" data-bs-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Поиск — Twtv</title>
+<link rel="icon" href="/favicon.ico" type="image/x-icon">
+<link rel="stylesheet" href="/templates/Default/css/bootstrap.min.css">
+<link rel="stylesheet" href="/templates/Default/css/styles.css">
+<link rel="stylesheet" href="/templates/Default/css/engine.css">
+<style>
+body{background:#121212;color:#ddd} .search-card{background:#1e1e1e;border:1px solid #333;border-radius:12px;padding:18px;margin-bottom:16px} a{text-decoration:none}
+.muted{color:#aaa}.wrap{max-width:980px;margin:0 auto;padding:24px}.brand{display:flex;align-items:center;gap:12px;color:#fff}.brand img{width:40px;height:32px}
+</style>
+<meta name="theme-color" content="#050816">
+<link rel="stylesheet" href="/assets/streamreact-premium.css?v=20260314d">
+<script src="/assets/streamreact-premium.js?v=20260314d" defer></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <a class="brand" href="/index.html"><img src="/uploads/twtv-icon.png" alt=""> <strong>Twtv</strong></a>
+    <nav class="d-flex gap-3 flex-wrap">
+      <a href="/films.html">Фильмы</a>
+      <a href="/serials.html">Сериалы</a>
+      <a href="/mults.html">Мультфильмы</a>
+      <a href="/anime.html">Аниме</a>
+      <a href="/feedback.html">Обратная связь</a>
+    </nav>
+  </div>
+  <form class="d-flex gap-2 mb-4" action="/search.html" method="get">
+    <input class="form-control" type="search" name="story" id="story" placeholder="Найти фильм, сериал, аниме или стримера...">
+    <button class="btn btn-primary" type="submit">Найти</button>
+  </form>
+  <h1 class="h3 mb-3">Поиск по сайту</h1>
+  <p class="muted" id="summary">Введите название фильма, аниме, сериала, мультфильма или имя стримера.</p>
+  <div id="results"></div>
+</div>
+<script>
+const qp = new URLSearchParams(location.search);
+const query = (qp.get('story') || qp.get('q') || '').trim();
+const storyInput = document.getElementById('story');
+storyInput.value = query;
+const resultsEl = document.getElementById('results');
+const summaryEl = document.getElementById('summary');
+function esc(s){return (s||'').replace(/[&<>"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));}
+fetch('/search-index.json').then(r => r.json()).then(data => {
+  if (!query) {
+    return;
+  }
+  const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+  const scored = data.map(item => {
+    const hay = (item.title + ' ' + item.description + ' ' + item.streamers + ' ' + item.text).toLowerCase();
+    let score = 0;
+    for (const t of terms) {
+      if (item.title.toLowerCase().includes(t)) score += 10;
+      if (item.streamers.toLowerCase().includes(t)) score += 6;
+      if (item.description.toLowerCase().includes(t)) score += 3;
+      if (hay.includes(t)) score += 1;
+    }
+    return {...item, score};
+  }).filter(x => x.score > 0).sort((a,b) => b.score - a.score).slice(0, 100);
+  summaryEl.textContent = scored.length ? `Найдено результатов: ${scored.length}` : 'Ничего не найдено.';
+  resultsEl.innerHTML = scored.map(item => `
+    <a href="${esc(item.url)}" class="search-card d-block">
+      <div class="h5 mb-2">${esc(item.title)}</div>
+      ${item.streamers ? `<div class="muted mb-2">Стримеры: ${esc(item.streamers)}</div>` : ''}
+      ${item.description ? `<div>${esc(item.description)}</div>` : ''}
+      <div class="muted mt-2">${esc(item.url)}</div>
+    </a>
+  `).join('');
+}).catch(err => {
+  console.error(err);
+  summaryEl.textContent = 'Не удалось загрузить индекс поиска.';
+});
+</script>
+</body>
+</html>
